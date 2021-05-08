@@ -132,14 +132,11 @@ def getStats(dict):
         for index, row in df.iterrows():
             stats = stats.append(row[units.split(', ')], ignore_index=True)
     stats = stats.agg(['mean', 'count', 'std']).transpose()
-    ci90_hi = []
-    ci90_lo = []
+    ci90 = []
     for i in stats.index:
         m, c, s = stats.loc[i]
-        ci90_hi.append(m + 1.64*s/math.sqrt(c))#1.96 for 95% confidence
-        ci90_lo.append(m - 1.64*s/math.sqrt(c))
-    stats['ci90_hi'] = ci90_hi
-    stats['ci90_lo'] = ci90_lo
+        ci90.append(1.64*s/math.sqrt(c))#1.96 for 95% confidence
+    stats['+-ci90'] = ci90
     return stats
 
 #Round dateTime to closest day
@@ -159,17 +156,24 @@ d1, d2 = populateDataFrames()
 
 #STATISTICS
 print('Calculating Statistics')
+statsOriginal = getStats({'timeDiff': d1[d1['changeSaved']], 'changeSaved, clicks, errandTimeDiff, OverviewClicks, AddressClicks, ContactClicks, IndividualClicks, TransactionClicks, PurchasesClicks, RewardsClicks, OrdersClicks, InteractionsClicks, ProfileClicks, ClicksInOverview, ClicksInAddress, ClicksInContact, ClicksInIndividual, ClicksInTransaction, ClicksInPurchases, ClicksInRewards, ClicksInOrders, ClicksInInteractions, ClicksInProfile, lastOverview, lastAddress, lastContact, lastIndividual, lastTransaction, lastPurchases, lastRewards, lastOrders, lastInteractions, lastProfile': d1.rename(columns = {'timeDiff': 'errandTimeDiff'}, inplace = False)})
+statsTreatment = getStats({'timeDiff': d2[d2['changeSaved']], 'changeSaved, clicks, errandTimeDiff, OverviewClicks, AddressClicks, ContactClicks, IndividualClicks, TransactionClicks, PurchasesClicks, RewardsClicks, OrdersClicks, InteractionsClicks, ProfileClicks, ClicksInOverview, ClicksInAddress, ClicksInContact, ClicksInIndividual, ClicksInTransaction, ClicksInPurchases, ClicksInRewards, ClicksInOrders, ClicksInInteractions, ClicksInProfile, lastOverview, lastAddress, lastContact, lastIndividual, lastTransaction, lastPurchases, lastRewards, lastOrders, lastInteractions, lastProfile': d2.rename(columns = {'timeDiff': 'errandTimeDiff'}, inplace = False)})
+
+statsMerge = statsOriginal.join(statsTreatment, lsuffix='_original', rsuffix='_treatment')
+pValues = []
+for index, row in statsMerge.iterrows():
+    pValues.append((row['mean_treatment'] - row['mean_original'])/np.sqrt(row['std_original']**2/row['count_original']+row['std_treatment']**2/row['count_treatment']))
+statsMerge['p-value'] = pValues
+print(statsMerge)
+
 logging.basicConfig(filename='logfile' + str(datetime.date.today()) + '.log', level=logging.INFO, format='%(message)s')
-logging.info('Original')
-logging.info('Statistics')
-logging.info(getStats({'timeDiff': d1[d1['changeSaved']], 'changeSaved, clicks, errandTimeDiff, OverviewClicks, AddressClicks, ContactClicks, IndividualClicks, TransactionClicks, PurchasesClicks, RewardsClicks, OrdersClicks, InteractionsClicks, ProfileClicks, ClicksInOverview, ClicksInAddress, ClicksInContact, ClicksInIndividual, ClicksInTransaction, ClicksInPurchases, ClicksInRewards, ClicksInOrders, ClicksInInteractions, ClicksInProfile, lastOverview, lastAddress, lastContact, lastIndividual, lastTransaction, lastPurchases, lastRewards, lastOrders, lastInteractions, lastProfile': d1.rename(columns = {'timeDiff': 'errandTimeDiff'}, inplace = False)}))
-logging.info('Dickey-Fuller Test')
+logging.info('Metric Comparison')
+logging.info(statsMerge)
+
+logging.info('Dickey-Fuller Test - Original')
 dickeyfuller(d1)
 
-logging.info('Treatment')
-logging.info('Statistics')
-logging.info(getStats({'timeDiff': d2[d2['changeSaved']], 'changeSaved, clicks, errandTimeDiff, OverviewClicks, AddressClicks, ContactClicks, IndividualClicks, TransactionClicks, PurchasesClicks, RewardsClicks, OrdersClicks, InteractionsClicks, ProfileClicks, ClicksInOverview, ClicksInAddress, ClicksInContact, ClicksInIndividual, ClicksInTransaction, ClicksInPurchases, ClicksInRewards, ClicksInOrders, ClicksInInteractions, ClicksInProfile, lastOverview, lastAddress, lastContact, lastIndividual, lastTransaction, lastPurchases, lastRewards, lastOrders, lastInteractions, lastProfile': d2.rename(columns = {'timeDiff': 'errandTimeDiff'}, inplace = False)}))
-logging.info('Dickey-Fuller Test')
+logging.info('Dickey-Fuller Test - Treatment')
 dickeyfuller(d2)
 
 #GRAPH PLOT
