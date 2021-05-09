@@ -10,6 +10,7 @@ import datetime
 import logging
 import seaborn as sns
 import matplotlib.dates as md
+from scipy import stats as st
 
 #Return errands within a session with time difference and number of clicks between subsequent 'Enter Profile'-events and 'Save Changes'-events.
 def getErrands(session):
@@ -24,7 +25,7 @@ def getErrands(session):
     lastTabs = {'lastOverview': 0, 'lastAddress': 0, 'lastContact': 0, 'lastIndividual': 0, 'lastTransaction': 0, 'lastPurchases': 0, 'lastRewards': 0, 'lastOrders': 0, 'lastInteractions': 0, 'lastProfile': 0}   
     #increase value to the key in tabClicks that match with action
     def increaseTabClicks(action):
-        if action not in ['Non Key Clicks', 'Enter Profile', 'Search Page', 'Reset Password', 'Save Changes', 'stepInResult']:
+        if action in ['Overview Click', 'Address Click', 'Contact Click', 'Individual Click', 'Transaction Click', 'Purchases Clicks', 'Rewards Clicks', 'Orders Clicks', 'Interactions Clicks', 'Profile Clicks']:
             tabClicks[action.replace(' ', '')] += 1
     #incrase click for action's respective tab 
     def increaseClicksInTab(action):
@@ -33,8 +34,7 @@ def getErrands(session):
     session = session.sort_values(by=['Timestamp'])#Sort events after ascending timestamp
     for index, row in session.iterrows(): #Iterate through every event within session
         date = row['Date Hour and Minute']
-        if row['Event Action'] not in ['Non Key Clicks', 'Enter Profile', 'Search Page', 'Reset Password', 'Save Changes']:
-            increaseTabClicks(row['Event Action'])
+        increaseTabClicks(row['Event Action'])
         if clicks and row['Event Action'] != 'Enter Profile' and not changeSaved:#increase number of clicks only between entering profile and saving change or within the same profile
             clicks +=1
             if row['Event Action'] == 'Non Key Clicks':
@@ -162,9 +162,15 @@ statsTreatment = getStats({'timeDiff': d2[d2['changeSaved']], 'changeSaved, clic
 statsMerge = statsOriginal.join(statsTreatment, lsuffix='_original', rsuffix='_treatment')
 pValues = []
 for index, row in statsMerge.iterrows():
-    pValues.append((row['mean_treatment'] - row['mean_original'])/np.sqrt(row['std_original']**2/row['count_original']+row['std_treatment']**2/row['count_treatment']))
+    df = row['count_original'] + row['count_treatment'] -2
+    tValue = (row['mean_treatment'] - row['mean_original'])/np.sqrt(row['std_original']**2/row['count_original']+row['std_treatment']**2/row['count_treatment'])
+    pValue = 1 - st.t.cdf(tValue,df=df)
+    pValues.append(pValue)
 statsMerge['p-value'] = pValues
-print(statsMerge)
+statsMerge.pop('std_original')
+statsMerge.pop('std_treatment')
+statsMerge.pop('count_original')
+statsMerge.pop('count_treatment')
 
 logging.basicConfig(filename='logfile' + str(datetime.date.today()) + '.log', level=logging.INFO, format='%(message)s')
 logging.info('Metric Comparison')
