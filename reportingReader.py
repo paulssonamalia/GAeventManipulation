@@ -194,8 +194,3 @@ sns.lineplot(ax = ax, x='Datetime', y='clicks', data=dateAvg2, ci = 80).set_titl
 plt.setp(ax.xaxis.get_majorticklabels(), rotation = 90)#rotate by 90° the labels
 
 plt.show()
-
-#forecastULeffect(d1)
-#d1 = d1.set_index('date')
-#print(d1)
-#print('-'*50)
